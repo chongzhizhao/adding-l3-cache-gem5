@@ -1,4 +1,5 @@
 # Copyright (c) 2012-2013, 2015-2016 ARM Limited
+# Copyright (c) 2020 Barkhausen Institut
 # All rights reserved
 #
 # The license below extends only to copyright in the software and shall
@@ -35,8 +36,6 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Authors: Lisa Hsu
 
 # Configure the M5 cache hierarchy config in one place
 #
@@ -46,11 +45,11 @@ from __future__ import absolute_import
 
 import m5
 from m5.objects import *
-from .Caches import *
+from common.Caches import *
 from common import ObjectList
 
 def config_cache(options, system):
-    if options.external_memory_system and (options.caches or options.l2cache or options.l3cache):
+    if options.external_memory_system and (options.caches or options.l2cache):
         print("External caches and internal caches are exclusive options.\n")
         sys.exit(1)
 
@@ -77,12 +76,11 @@ def config_cache(options, system):
 
         dcache_class, icache_class, l2_cache_class, walk_cache_class = \
             core.HPI_DCache, core.HPI_ICache, core.HPI_L2, core.HPI_WalkCache
-    # Since I'm only messing with X86, L3 is only implemented here.
     else:
-        dcache_class, icache_class, l2_cache_class, l3_cache_class, walk_cache_class = \
-            L1_DCache, L1_ICache, L2Cache, L3Cache, None
+        dcache_class, icache_class, l2_cache_class, walk_cache_class = \
+            L1_DCache, L1_ICache, L2Cache, None
 
-        if buildEnv['TARGET_ISA'] == 'x86':
+        if buildEnv['TARGET_ISA'] in ['x86', 'riscv']:
             walk_cache_class = PageTableWalkerCache
 
     # Set the cache line size of the system
@@ -92,27 +90,10 @@ def config_cache(options, system):
     # minimal so that compute delays do not include memory access latencies.
     # Configure the compulsory L1 caches for the O3CPU, do not configure
     # any more caches.
-    if (options.l2cache or options.l3cache) and options.elastic_trace_en:
+    if options.l2cache and options.elastic_trace_en:
         fatal("When elastic trace is enabled, do not configure L2 caches.")
 
-    if options.l3cache:
-        #system.l2 = l2_cache_class(clk_domain=system.cpu_clk_domain,
-        #                            size=options.l2_size,
-        #                            assoc=options.l2_assoc)
-        system.l3 = l3_cache_class(clk_domain=system.cpu_clk_domain,
-                                    size=options.l3_size,
-                                    assoc=options.l3_assoc)
-
-        #system.tol2bus = L2XBar(clk_domain=system.cpu_clk_domain)
-        system.tol3bus = L3XBar(clk_domain=system.cpu_clk_domain)
-
-        #system.l2.cpu_side = system.tol2bus.master
-        #system.l2.mem_side = system.tol3bus.slave
-
-        system.l3.cpu_side = system.tol3bus.master
-        system.l3.mem_side = system.membus.slave
-
-    elif options.l2cache:
+    if options.l2cache:
         # Provide a clock for the L2 and the L1-to-L2 bus here as they
         # are not connected using addTwoLevelCacheHierarchy. Use the
         # same clock as the CPUs.
@@ -186,8 +167,8 @@ def config_cache(options, system):
 
             # When connecting the caches, the clock is also inherited
             # from the CPU in question
-            #system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
-            #                                      iwalkcache, dwalkcache)
+            system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
+                                                  iwalkcache, dwalkcache)
 
             if options.memchecker:
                 # The mem_side ports of the caches haven't been connected yet.
@@ -195,25 +176,13 @@ def config_cache(options, system):
                 system.cpu[i].dcache = dcache_real
                 system.cpu[i].dcache_mon = dcache_mon
 
-            if options.l3cache:
-                l2cache = l2_cache_class(size=options.l2_size,
-                                         assoc=options.l2_assoc)
-            #    system.cpu[i].tol2bus = L2XBar()
-            #    system.cpu[i].l2.cpu_side = system.cpu[i].tol2bus.master
-            #    system.cpu[i].l2.mem_side = system.tol3bus.slave
-                system.cpu[i].addTwoLevelCacheHierarchy(icache, dcache, l2cache,
-                                                        iwalkcache, dwalkcache)
-            else:
-                system.cpu[i].addPrivateSplitL1Caches(icache, dcache,
-                                                      iwalkcache, dwalkcache)
-
         elif options.external_memory_system:
             # These port names are presented to whatever 'external' system
             # gem5 is connecting to.  Its configuration will likely depend
             # on these names.  For simplicity, we would advise configuring
             # it to use this naming scheme; if this isn't possible, change
             # the names below.
-            if buildEnv['TARGET_ISA'] in ['x86', 'arm']:
+            if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
                 system.cpu[i].addPrivateSplitL1Caches(
                         ExternalCache("cpu%d.icache" % i),
                         ExternalCache("cpu%d.dcache" % i),
@@ -225,10 +194,7 @@ def config_cache(options, system):
                         ExternalCache("cpu%d.dcache" % i))
 
         system.cpu[i].createInterruptController()
-
-        if options.l3cache:
-            system.cpu[i].connectAllPorts(system.tol3bus, system.membus)
-        elif options.l2cache:
+        if options.l2cache:
             system.cpu[i].connectAllPorts(system.tol2bus, system.membus)
         elif options.external_memory_system:
             system.cpu[i].connectUncachedPorts(system.membus)

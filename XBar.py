@@ -35,9 +35,6 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Authors: Nathan Binkert
-#          Andreas Hansson
 
 from m5.objects.System import System
 from m5.params import *
@@ -154,14 +151,6 @@ class L2XBar(CoherentXBar):
     # the point of unification, it connects the dcache and the icache
     # to the first level of unified cache.
     point_of_unification = True
-
-class L3XBar(CoherentXBar):
-    width = 32
-    frontend_latency = 1
-    forward_latency = 0
-    response_latency = 1
-    snoop_response_latency = 1
-    snoop_filter = SnoopFilter(lookup_latency = 0)
 
 # One of the key coherent crossbar instances is the system
 # interconnect, tying together the CPU clusters, GPUs, and any I/O

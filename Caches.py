@@ -1,4 +1,5 @@
 # Copyright (c) 2012 ARM Limited
+# Copyright (c) 2020 Barkhausen Institut
 # All rights reserved.
 #
 # The license below extends only to copyright in the software and shall
@@ -35,8 +36,6 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Authors: Lisa Hsu
 
 from __future__ import print_function
 from __future__ import absolute_import
@@ -51,13 +50,12 @@ from m5.objects import *
 # specific instantiations.
 
 class L1Cache(Cache):
-    assoc = 8
+    assoc = 2
     tag_latency = 2
     data_latency = 2
     response_latency = 2
-    mshrs = 10
+    mshrs = 4
     tgts_per_mshr = 20
-    clusivity = 'mostly_incl'
 
 class L1_ICache(L1Cache):
     is_read_only = True
@@ -68,24 +66,13 @@ class L1_DCache(L1Cache):
     pass
 
 class L2Cache(Cache):
-    assoc = 4
-    tag_latency = 8
-    data_latency = 8
-    response_latency = 12
+    assoc = 8
+    tag_latency = 20
+    data_latency = 20
+    response_latency = 20
     mshrs = 20
-    tgts_per_mshr = 20
+    tgts_per_mshr = 12
     write_buffers = 8
-    clusivity = 'mostly_incl'
-
-class L3Cache(Cache):
-    assoc = 16
-    tag_latency = 32
-    data_latency = 32
-    response_latency = 32
-    mshrs = 512
-    tgts_per_mshr = 24
-    write_buffers = 256
-    clusivity = 'mostly_incl'
 
 class IOCache(Cache):
     assoc = 8
@@ -106,7 +93,7 @@ class PageTableWalkerCache(Cache):
     tgts_per_mshr = 12
 
     # the x86 table walker actually writes to the table-walker cache
-    if buildEnv['TARGET_ISA'] == 'x86':
+    if buildEnv['TARGET_ISA'] in ['x86', 'riscv']:
         is_read_only = False
     else:
         is_read_only = True
